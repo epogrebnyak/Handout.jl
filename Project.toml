@@ -1,0 +1,7 @@
+name = "Handout"
+uuid = "a62efe80-bd03-11e9-184d-b36ec2889a56"
+authors = ["E Pogrebnyak <e.pogrebnyak@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
