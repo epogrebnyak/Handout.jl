@@ -1,16 +1,17 @@
 module Trace
-export Location, @point, @find_source
+export @trace, @file, Location
+
 struct Location
     file:: String
     line:: Integer
 end
 
-macro point()
-    return Location(__source__.filename, __source__.line)
-end
+macro trace()
+    return Location(abspath(PROGRAM_FILE), __source__.line)
+end  
 
-macro find_source()
-    return __source__
+macro file()
+  return QuoteNode(__source__.file)
 end
 
 end
