@@ -1,15 +1,22 @@
-struct Pointer
-    items :: Vector{String}
-end
-
 function add_text(p::Pointer, message::String)
     push!(p.items, message)
     p
 end
 
-function filename(p::Pointer)
-    # must return a name of the file where p is initiated
-end    
+#module Trace
+#export @file, @trace, Location
+
+struct Location
+    file:: String
+    line:: Integer
+end
+
+
+macro trace()
+  return Location(String(QuoteNode(__source__.file)), __source__.line)
+end  
+
+
 
 #=
 
