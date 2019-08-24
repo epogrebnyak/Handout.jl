@@ -19,4 +19,4 @@ println(doc)
 @test doc.directory == "."
 @test doc.title == "My report"
 
-@show(doc)
+#@show(doc)
