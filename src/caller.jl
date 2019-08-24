@@ -1,5 +1,5 @@
-include("trace.jl")
-using .Trace
+include("Handout.jl")
+using .Handout
 using Test
 
 #putting two statement in one line so that linenumer is the same
@@ -15,7 +15,8 @@ println("Done.")
 
 doc = @handout(".", "My report")
 println(doc)
+@test doc isa Document 
+@test doc.directory == "."
+@test doc.title == "My report"
 
-# Note: remember to use
-#   fieldnames()
-#   methodswith()
+@show(doc)
