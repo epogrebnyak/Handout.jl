@@ -1,5 +1,5 @@
 module Handout
-export @trace, Location, Document, @handout
+export @trace, Location, Document, @handout, render
 
 # julia learning space: 
 # greet() = print("Hello World!")
@@ -24,20 +24,22 @@ const DirectoryPath = String
 struct Document # renamed from Handout because of conflict with module name
     script:: FilePath
     directory:: DirectoryPath
-    title:: String
+    title:: String    
 end
 
 macro handout(directory, title="Handout")
     return Document(String(__source__.file), directory, title)
 end    
 
-macro show(doc::Document)
-   error(NotImplemented)
+function render(doc::Document)
+    println(doc.title)
+    println(read(doc.script, String)[1:50], "...")
 end
 
 
 #TODO: add_html block
-#TODO: read script and convert to blocks (can do line by line)
+#DONE: read script and convert to blocks (can do line by line)
 #TODO: merge script and user blocks
+#TODO: render html
 
 end # module

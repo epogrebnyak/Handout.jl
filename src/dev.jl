@@ -1,17 +1,137 @@
-include("Handout.jl")
-using .Handout
-using Test
+# TODO: structs below can be generated via macros
 
-function merge(doc:: Document, breaks)
-    lines = readlines(doc.script)
+struct Message
+    lines:: Vector{String}
+end
+
+function html(block:: Message)
+    return "<pre class=\"message\">" * join(block) * "</pre>\n"
+end    
+
+
+struct Code
+    lines:: Vector{String}
+end
+
+function html(block:: Code)
+    return "<pre><code class=\"julia\">" * join(block) * "</code></pre>\n"
+end
+
+struct Text
+    lines:: Vector{String}
+end
+
+function html(block:: Text)
+    return "<div class=\"markdown\">" + join(block) + "</div>\n"
+end    
+
+# TODO: add more types
+
+const ScriptBlock = Union{Text,Code}
+const UserBlock = Union{Message}
+const UserBlocks = Vector{UserBlock}
+const TextBlock = Union{Text,Code,Message} 
+# TODO: Block is union ScriptBlock and UserBlock?
+null(type::Type{Message}) = type([])
+
+Base.join(block::TextBlock) = join(block.lines, "\n")
+Base.:(==)(a::TextBlock, b::TextBlock) = (a.lines == b.lines) && (a isa typeof(b))
+append(block::ScriptBlock, x)= typeof(block)([block.lines; x])
+is_empty(block::ScriptBlock) = block.lines == [] 
+
+struct BlockStack
+    pending:: UserBlocks 
+    registered:: Dict{Int,UserBlocks}
+end
+
+function append(stack::BlockStack, item::UserBlock) 
+    pending = vcat(stack.pending, item)
+    return UserBlocks(pending, stack.registered)
+end    
+
+function flush(stack::BlockStack, line::Int)
+    registered = stack.registered
+    registered[line] = if haskey(registered, line)
+        vcat(registered[line], stack.pending)        
+    else
+        stack.pending        
+    end
+    return UserBlocks([], registered)
+end     
+
+empty_stack() = BlockStack([], Dict())
+
+function to_blocks(script_text:: String) 
+    blocks = ScriptBlock[]
+    block = Code([])
+    for line in split(script_text, "\n")
+        # option: started comment
+        if startswith(line,"#=")
+            is_empty(block) || push!(blocks, block)
+            line = line[3:end]
+            block = Text([])
+        end    
+        # option: ended comment, can be same line as started comment
+        if endswith(line, "=#")
+            line = line[1:end-2]
+            push!(blocks, append(block, line))
+            block = Code([])
+            continue
+        end    
+        # option: continue previous block    
+        block = append(block, line) 
+    end
+    is_empty(block) || push!(blocks, block) # add last block after loop   
+    return blocks          
+end  
+
+const FilePath = String
+const DirectoryPath = String
+
+struct Document # renamed from Handout because of conflict with module name
+    title:: String
+    file:: FilePath # source
+    directory:: DirectoryPath # target
+    stack:: BlockStack   
+end
+
+macro handout(directory, title="Handout")
+    return Document(title, String(__source__.file), directory, empty_stack())
+end    
+
+function render(doc::Document)
+    stack = flush(doc.stack)
+    html = join(map(html, stack.accepted), "\n")
+    return html, Document(doc.title, doc.file, doc.directory, stack)
+end
+
+function merge(doc:: Document, breaks:: Vector{Int})
+    lines = readlines(doc.file)
     result = Vector{String}[]
     as = [0; breaks]
     bs = [breaks; length(lines)]
     for (a, b) in zip(as,bs)
-        push!(result, lines[(a+1):b])
+        text = join(lines[(a+1):b], "\n")
+        print(text)
+        #push!(result, text)
     end    
     return result
 end   
+
+using Test
+
+lines = "doc = @handout(\".\")
+a = merge(doc, [10, 22])
+
+#=
+Something useful to say.
+In several lines.
+=#
+"
+println(lines)
+for (i, b) in enumerate(to_blocks(lines))
+    println(i, ": ", b)
+end
 
 doc = @handout(".", "My report")
 a = merge(doc, [15, 22])
@@ -21,55 +141,34 @@ Something useful to say.
 In several lines
 =#
 
-# Learn julia:
-# - http://www.stochasticlifestyle.com/type-dispatch-design-post-object-oriented-programming-julia/
-# - can use macros to propagate methods in julia 
-# - append can change inline
+@test append(Code(["abc"]), "def") == Code(["abc", "def"])
+@test append(Text(["abc"]), "def") == Text(["abc", "def"])
 
-lines = a[2]
+@test to_blocks(lines)[1] == Code(["doc = @handout(\".\")", 
+                                   "a = merge(doc, [10, 22])", 
+                                   ""])
+@test to_blocks(lines)[2] == Text(["", 
+                                   "Something useful to say.", 
+                                   "In several lines.", 
+                                   ""])
+@test to_blocks(lines)[3] == Code([""])
 
-struct Code
-    lines:: Vector{String}
-end    
 
-struct Text
-    lines:: Vector{String}
-end
+@test to_blocks("#= It is just one line. =#") == [Text([" It is just one line. "])]
 
-function append(block::Code, x::String)
-    return Code([block.lines; x])
-end
 
-function append(block::Text, x::String)
-    return Text([block.lines; x])
-end
+#Simplified:
+#- one user block (Message)
+#- no merging yet 
 
-@test append(Code(["abc"]), "def").lines == Code(["abc", "def"]).lines
+# TODO:
 
-function to_blocks(lines) 
-    blocks = [] # TODO: change to union type
-    block = Code([])
-    for line in lines
-        # option: started comment
-        if startswith(line,"#=")
-            if block.lines != [] (blocks = [blocks; block]) end
-            line = line[3:end]
-            block = Text([])
-        # option: ended comment, can be same line as started comment
-        if endswith(line, "=#")
-            line = line[1:end-2]
-            blocks = [blocks; append(block, line)]
-            block = Code([])
-            continue
-        # option: continue previous block    
-        block = append(block, line) 
-    end
-    blocks = [blocks; block] # add last block after loop   
-    return blocks  
-        
-end  
+#function add_message(doc::Document, x)
+#    stack = append(doc.stack, Message([x]))
+#    return Document(doc.title, doc.file, doc.directory, stack)
+#end 
 
-lines = ["", "doc = @handout(\".\", \"My report\")", "a = merge(doc, [13, 22])", "", "#=", "Something useful to say.", "In several lines", "=#", ""]
-show(to_blocks(lines))
-# need overload equality operator
-# @test to_blocks(lines) == Any[Code(["", "doc = @handout(\".\", \"My report\")", "a = merge(doc, [13, 22])", ""]), Text(["", "Something useful to say.", "In several lines", ""])]
+#doc = add_message(doc, "It's me!")
+
+# TODO:
+# show(render(doc))
