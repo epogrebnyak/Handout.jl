@@ -1,12 +1,7 @@
 module Handout
 export @trace, Location, Document, @handout, render
 
-# julia learning space: 
-# greet() = print("Hello World!")
-# remember to use fieldnames(), methodswith()
-
 const NotImplemented = "Not Implemented"
-
 
 struct Location
     file:: String

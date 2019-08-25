@@ -1,24 +1,25 @@
-# TODO: structs below can be generated via macros
+# MAYBE: structs below can be generated via macros
 
 struct Message
     lines:: Vector{String}
 end
 
-function html(block:: Message)
-    return "<pre class=\"message\">" * join(block) * "</pre>\n"
-end    
-
-
 struct Code
     lines:: Vector{String}
 end
 
-function html(block:: Code)
-    return "<pre><code class=\"julia\">" * join(block) * "</code></pre>\n"
-end
-
 struct Text
     lines:: Vector{String}
+end
+
+# end MAYBE
+
+function html(block:: Message)
+    return "<pre class=\"message\">" * join(block) * "</pre>\n"
+end    
+
+function html(block:: Code)
+    return "<pre><code class=\"julia\">" * join(block) * "</code></pre>\n"
 end
 
 function html(block:: Text)
@@ -27,39 +28,19 @@ end
 
 # TODO: add more types
 
+# QUESTION: should inherit from abstract base type?
 const ScriptBlock = Union{Text,Code}
 const UserBlock = Union{Message}
 const UserBlocks = Vector{UserBlock}
-const TextBlock = Union{Text,Code,Message} 
-# TODO: Block is union ScriptBlock and UserBlock?
-null(type::Type{Message}) = type([])
+const TextBlock = Union{Text,Code,Message}
 
 Base.join(block::TextBlock) = join(block.lines, "\n")
 Base.:(==)(a::TextBlock, b::TextBlock) = (a.lines == b.lines) && (a isa typeof(b))
 append(block::ScriptBlock, x)= typeof(block)([block.lines; x])
 is_empty(block::ScriptBlock) = block.lines == [] 
 
-struct BlockStack
-    pending:: UserBlocks 
-    registered:: Dict{Int,UserBlocks}
-end
 
-function append(stack::BlockStack, item::UserBlock) 
-    pending = vcat(stack.pending, item)
-    return UserBlocks(pending, stack.registered)
-end    
 
-function flush(stack::BlockStack, line::Int)
-    registered = stack.registered
-    registered[line] = if haskey(registered, line)
-        vcat(registered[line], stack.pending)        
-    else
-        stack.pending        
-    end
-    return UserBlocks([], registered)
-end     
-
-empty_stack() = BlockStack([], Dict())
 
 function to_blocks(script_text:: String) 
     blocks = ScriptBlock[]
@@ -92,7 +73,7 @@ struct Document # renamed from Handout because of conflict with module name
     title:: String
     file:: FilePath # source
     directory:: DirectoryPath # target
-    stack:: BlockStack   
+    stack:: Stack   
 end
 
 macro handout(directory, title="Handout")
@@ -163,10 +144,11 @@ In several lines
 
 # TODO:
 
-#function add_message(doc::Document, x)
-#    stack = append(doc.stack, Message([x]))
-#    return Document(doc.title, doc.file, doc.directory, stack)
-#end 
+function add_message(doc::Document, x)
+    m =  Message([x])
+    append!(doc.stack, m)
+    return doc
+end 
 
 #doc = add_message(doc, "It's me!")
 
