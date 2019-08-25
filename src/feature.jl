@@ -1,5 +1,3 @@
-# NOT TODO: generate structs below via macros
-
 struct Code
     lines:: Vector{String}
 end
@@ -40,6 +38,7 @@ function flush(stack::Stack, lineno::Int)
         stack.registered[lineno] = stack.pending        
     end
     stack.pending = []
+    return stack
 end     
 
 function flatten(stack::Stack)
@@ -70,8 +69,8 @@ const DirectoryPath = String
 
 struct Document # renamed from Handout to avoid conflict with module name
     title:: String
-    file:: FilePath # source
-    directory:: DirectoryPath # target
+    file:: FilePath 
+    directory:: DirectoryPath
     stack:: Stack   
 end
 
@@ -117,8 +116,8 @@ end
 
 function to_html(doc::Document)::String
     body = convert(doc, html)
-    head ="<html><body>"
-    tail ="</body></html>"
+    head ="<html><body>" #can be a constant
+    tail ="</body></html>" #can be a constant
     return head * body * tail
 end    
 
@@ -143,11 +142,24 @@ flush(doc.stack, 5)
 w = flatten(doc.stack)
 a = to_html(doc)
 
+function display(doc:: Document, lineno::Int)
+    flush(doc.stack, lineno)
+    to_html(doc)
+    # TODO: must save to file 
+end
+
 # TODO: flush must work know its line, should be a macro
-# TODO: must save to file 
-# TODO: combine flush() and html()
-# TODO: use script to produce literate blocks 
-# (*) TODO: image in julia, which library for imageio?
+macro display(doc)
+    line = __source__.line
+    quote 
+      display($doc, $line)     
+    end
+end     
+
+println(@display doc)
+
+# TODO: use and merge script blocks 
+# TODO: image in julia, which library for imageio?
 # TODO: move tests
 # TODO: make it a module
 
@@ -157,5 +169,6 @@ a = to_html(doc)
 # Simplifications:
 # - no title
 # - no CSS 
-# - not a module
+
+# NOT TODO: generate structs below via macros
 
