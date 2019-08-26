@@ -1,8 +1,5 @@
-# MAYBE: structs below can be generated via macros
-
-struct Message
-    lines:: Vector{String}
-end
+append(block::ScriptBlock, x)= typeof(block)([block.lines; x])
+is_empty(block::ScriptBlock) = block.lines == [] 
 
 struct Code
     lines:: Vector{String}
@@ -11,36 +8,6 @@ end
 struct Text
     lines:: Vector{String}
 end
-
-# end MAYBE
-
-function html(block:: Message)
-    return "<pre class=\"message\">" * join(block) * "</pre>\n"
-end    
-
-function html(block:: Code)
-    return "<pre><code class=\"julia\">" * join(block) * "</code></pre>\n"
-end
-
-function html(block:: Text)
-    return "<div class=\"markdown\">" + join(block) + "</div>\n"
-end    
-
-# TODO: add more types
-
-# QUESTION: should inherit from abstract base type?
-const ScriptBlock = Union{Text,Code}
-const UserBlock = Union{Message}
-const UserBlocks = Vector{UserBlock}
-const TextBlock = Union{Text,Code,Message}
-
-Base.join(block::TextBlock) = join(block.lines, "\n")
-Base.:(==)(a::TextBlock, b::TextBlock) = (a.lines == b.lines) && (a isa typeof(b))
-append(block::ScriptBlock, x)= typeof(block)([block.lines; x])
-is_empty(block::ScriptBlock) = block.lines == [] 
-
-
-
 
 function to_blocks(script_text:: String) 
     blocks = ScriptBlock[]
@@ -65,26 +32,6 @@ function to_blocks(script_text:: String)
     is_empty(block) || push!(blocks, block) # add last block after loop   
     return blocks          
 end  
-
-const FilePath = String
-const DirectoryPath = String
-
-struct Document # renamed from Handout because of conflict with module name
-    title:: String
-    file:: FilePath # source
-    directory:: DirectoryPath # target
-    stack:: Stack   
-end
-
-macro handout(directory, title="Handout")
-    return Document(title, String(__source__.file), directory, empty_stack())
-end    
-
-function render(doc::Document)
-    stack = flush(doc.stack)
-    html = join(map(html, stack.accepted), "\n")
-    return html, Document(doc.title, doc.file, doc.directory, stack)
-end
 
 function merge(doc:: Document, breaks:: Vector{Int})
     lines = readlines(doc.file)
@@ -136,21 +83,3 @@ In several lines
 
 
 @test to_blocks("#= It is just one line. =#") == [Text([" It is just one line. "])]
-
-
-#Simplified:
-#- one user block (Message)
-#- no merging yet 
-
-# TODO:
-
-function add_message(doc::Document, x)
-    m =  Message([x])
-    append!(doc.stack, m)
-    return doc
-end 
-
-#doc = add_message(doc, "It's me!")
-
-# TODO:
-# show(render(doc))

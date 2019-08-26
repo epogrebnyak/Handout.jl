@@ -6,8 +6,6 @@ struct Text
     lines:: Vector{String}
 end
 
-const ScriptBlock=Union{Code, Text}
-
 struct Html
     lines:: Vector{String}
 end
@@ -17,14 +15,14 @@ struct Image
     width:: Float16
 end
 
-const UserBlock = Union{Html, Image}
+const ScriptBlock = Union{Code,Text}
+const UserBlock = Union{Html,Image}
 const UserBlocks = Vector{UserBlock}
 const TextBlock = Union{Text,Code,Html}
-const Block = Union{UserBlock, TextBlock}
-
+const Block = Union{UserBlock,ScriptBlock}
 
 Base.join(block::TextBlock) = join(block.lines, "\n")
-
+Base.:(==)(a::TextBlock, b::TextBlock) = (a.lines == b.lines) && (a isa typeof(b))
 
 mutable struct Stack
     pending:: UserBlocks 
@@ -46,24 +44,6 @@ function flatten(stack::Stack)
     return [b for i in sort(ix) for b in doc.stack.registered[i]]
 end    
 
-s = Stack([],Dict())
-println("at init\n", s)
-push!(s.pending, Html(["<br>", "<h1>Header 1<h1>"]))
-push!(s.pending, Image("boo.png", 1))
-a = s.pending
-b = s.registered
-println("before change")
-println(s.pending)
-println(s.registered)
-flush(s,5)
-println("after change")
-println(s.pending)
-println(s.registered)
-
-using Test
-@test s.registered[5] == a
-
-
 const FilePath = String
 const DirectoryPath = String
 
@@ -80,7 +60,6 @@ macro handout(directory, title="Handout")
     return Document(title, _file, directory, _stack)
 end    
 
-
 function add_block(doc:: Document, block::UserBlock)
     push!(doc.stack.pending, block)
 end     
@@ -91,6 +70,8 @@ end
 
 function add_image(doc:: Document, filename, width=1)
     add_block(doc, Image(filename, width))
+    #TODO: counter
+    #TODO: create image file
 end
 
 function html(block:: Html)
@@ -100,14 +81,15 @@ end
 function html(block:: Image)
     w = round(100 * block.width, digits=2)
     return "<img src=\"$(block.file)\" width=\"$w\" />"
+    # why " />"?
 end 
 
 function html(block:: Code)
-    return "<pre><code class=\"julia\">" * join(block) * "</code></pre>\n"
+    return "<pre><code class=\"julia\">" * join(block) * "</code></pre>"
 end
 
 function html(block:: Text)
-    return "<div class=\"markdown\">" * join(block) * "</div>\n"
+    return "<div class=\"markdown\">" * join(block) * "</div>"
 end 
 
 function convert(doc::Document, func)
@@ -121,34 +103,19 @@ function to_html(doc::Document)::String
     return head * body * tail
 end    
 
-function save_html(doc::Document)
-    # TODO
-    error("not implemented")
-end    
-
-
-doc=@handout(".")
-add_image(doc, "boo.png", 0.5)
-add_html(doc, "<b>This is me!</b>")
-flush(doc.stack, 1)
-
-Base.:(==)(a::TextBlock, b::TextBlock) = (a.lines == b.lines) && (a isa typeof(b))
-@test doc.stack.registered[1][1] == Image("boo.png", 0.5)
-@test doc.stack.registered[1][2] == Html(["<b>This is me!</b>"])
-
-add_html(doc, "<i>Me again!</i>")
-flush(doc.stack, 5)
-
-w = flatten(doc.stack)
-a = to_html(doc)
+function write_to_file(filename, content)
+    open(filename, "w") do io
+        write(io, content)
+    end
+end
 
 function display(doc:: Document, lineno::Int)
     flush(doc.stack, lineno)
-    to_html(doc)
-    # TODO: must save to file 
+    content = to_html(doc)
+    write_to_file(doc.file, content)
+    return content 
 end
 
-# TODO: flush must work know its line, should be a macro
 macro display(doc)
     line = __source__.line
     quote 
@@ -156,19 +123,32 @@ macro display(doc)
     end
 end     
 
-println(@display doc)
+# == Source script ==
+# TODO: merge script blocks (script.jl)
 
-# TODO: use and merge script blocks 
+# == Image ==
 # TODO: image in julia, which library for imageio?
-# TODO: move tests
-# TODO: make it a module
+# TODO: counter for image numbers
+# TODO: create image file
 
-# Review: 
-# - does html has to be multi-line? [] vs String
+# == Usage ==
+# TODO: make tests from caller.jl
+# TODO: example.jl
 
-# Simplifications:
-# - no title
+# == Simplifications ==
+# - no HTML title
 # - no CSS 
+# - no logging messages
+# - no exclude pragmas
+# - two types of user blocks - html and image
 
-# NOT TODO: generate structs below via macros
+# == Changes to original python version ==
+#- @display vs show()
+#- no "\n" at the end of html representation of blocks (we join them with "\n" later anyways)
+#- html header and footer are not blocks, but strings (separation of exporter and doc representation)
 
+# == Questions / maybe ==
+#- should data structures inherit from abstract base type?
+#- does html has to be multi-line? [] vs String
+#- may generate structs below via macros
+#- weave reader
