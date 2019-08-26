@@ -1,5 +1,4 @@
-append(block::ScriptBlock, x)= typeof(block)([block.lines; x])
-is_empty(block::ScriptBlock) = block.lines == [] 
+# Convert source file contents to code and text blocks and merge them with user blocks.
 
 struct Code
     lines:: Vector{String}
@@ -9,10 +8,15 @@ struct Text
     lines:: Vector{String}
 end
 
-function to_blocks(script_text:: String) 
+const ScriptBlock = Union{Code,Text}
+
+append(block::ScriptBlock, x)= typeof(block)([block.lines; x])
+is_empty(block::ScriptBlock) = block.lines == [] 
+
+function to_blocks(text:: String) 
     blocks = ScriptBlock[]
     block = Code([])
-    for line in split(script_text, "\n")
+    for line in split(text, "\n")
         # option: started comment
         if startswith(line,"#=")
             is_empty(block) || push!(blocks, block)
@@ -33,15 +37,15 @@ function to_blocks(script_text:: String)
     return blocks          
 end  
 
-function merge(doc:: Document, breaks:: Vector{Int})
-    lines = readlines(doc.file)
+# prototype for merging script and text
+function get_segments(lines: Vector{String}, breaks:: Vector{Int})
     result = Vector{String}[]
     as = [0; breaks]
     bs = [breaks; length(lines)]
     for (a, b) in zip(as,bs)
         text = join(lines[(a+1):b], "\n")
         print(text)
-        #push!(result, text)
+        push!(result, text)
     end    
     return result
 end   
@@ -61,13 +65,7 @@ for (i, b) in enumerate(to_blocks(lines))
     println(i, ": ", b)
 end
 
-doc = @handout(".", "My report")
-a = merge(doc, [15, 22])
-
-#=
-Something useful to say.
-In several lines
-=#
+a = get_segments(split(lines), [15, 22])
 
 @test append(Code(["abc"]), "def") == Code(["abc", "def"])
 @test append(Text(["abc"]), "def") == Text(["abc", "def"])
@@ -80,6 +78,5 @@ In several lines
                                    "In several lines.", 
                                    ""])
 @test to_blocks(lines)[3] == Code([""])
-
 
 @test to_blocks("#= It is just one line. =#") == [Text([" It is just one line. "])]

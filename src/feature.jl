@@ -40,8 +40,8 @@ function flush(stack::Stack, lineno::Int)
 end     
 
 function flatten(stack::Stack)
-    ix = sort([i for i in keys(doc.stack.registered)])
-    return [b for i in sort(ix) for b in doc.stack.registered[i]]
+    ix = sort([i for i in keys(stack.registered)])
+    return [b for i in sort(ix) for b in stack.registered[i]]
 end    
 
 const FilePath = String
@@ -93,10 +93,20 @@ function html(block:: Text)
 end 
 
 function convert(doc::Document, func)
-    return join(map(func, flatten(doc.stack)), "\n")
+    return join(map(func, all_blocks(doc)), "\n")
 end
 
-function to_html(doc::Document)::String
+function all_blocks(doc::Document) 
+    merge(readlines(doc.file), doc.stack.registered)
+end    
+
+function merge(lines:: Vector{String}, blocks: Dict{Int, UserBlocks}):: Vector{Block}
+    # script_blocks = 
+    # user_blocks =
+    all_blocks = []
+end    
+
+function to_html(doc::Document)::String    
     body = convert(doc, html)
     head ="<html><body>" #can be a constant
     tail ="</body></html>" #can be a constant
@@ -108,6 +118,7 @@ function write_to_file(filename, content)
         write(io, content)
     end
 end
+
 
 function display(doc:: Document, lineno::Int)
     flush(doc.stack, lineno)
@@ -122,6 +133,9 @@ macro display(doc)
       display($doc, $line)     
     end
 end     
+
+# == Parts ==
+# TODO: html.jl(?)
 
 # == Source script ==
 # TODO: merge script blocks (script.jl)
@@ -146,6 +160,7 @@ end
 #- @display vs show()
 #- no "\n" at the end of html representation of blocks (we join them with "\n" later anyways)
 #- html header and footer are not blocks, but strings (separation of exporter and doc representation)
+#- works in REPL by default
 
 # == Questions / maybe ==
 #- should data structures inherit from abstract base type?
